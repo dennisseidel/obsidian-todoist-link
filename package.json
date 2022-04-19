@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-things-link",
+	"name": "obsidian-todoist-link",
 	"version": "1.1.0",
-	"description": "Seamlessly create Things tasks and projects from Obsidian",
+	"description": "Create Todoist tasks and projects from Obsidian",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -9,7 +9,7 @@
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],
-	"author": "",
+	"author": "dennisseidel",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
@@ -20,5 +20,8 @@
 		"obsidian": "^0.12.17",
 		"tslib": "2.3.1",
 		"typescript": "4.4.4"
+	},
+	"dependencies": {
+		"@doist/todoist-api-typescript": "^1.5.0"
 	}
 }
