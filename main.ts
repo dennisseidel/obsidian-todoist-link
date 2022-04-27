@@ -121,7 +121,11 @@ function createTask(line: string, deepLink: string, api: TodoistApi) {
 export default class TodoistLinkPlugin extends Plugin {
 
 	settings: TodoistLinkSettings;
-	todoist: TodoistApi;
+
+	getTodistApi(): TodoistApi {
+		const api = new TodoistApi(this.settings.apikey);
+		return api
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -129,12 +133,12 @@ export default class TodoistLinkPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.onload();
 	}
 
 	async onload() {
 
 		await this.loadSettings();
-		this.todoist = new TodoistApi(this.settings.apikey);
 
 		this.addCommand({
 			id: 'create-todoist-project',
@@ -148,7 +152,7 @@ export default class TodoistLinkPlugin extends Plugin {
 					let fileName = fileTitle.name
 					fileName = fileName.replace(/\.md$/, '')
 					const obsidianDeepLink = (this.app as any).getObsidianUrl(fileTitle)
-					createProject(fileName, obsidianDeepLink, this.todoist);
+					createProject(fileName, obsidianDeepLink, this.getTodistApi());
 				}
 			}
 		});
@@ -167,7 +171,7 @@ export default class TodoistLinkPlugin extends Plugin {
 					const obsidianDeepLink = (this.app as any).getObsidianUrl(fileTitle)
 					const line = getCurrentLine(editor, view)
 					const task = prepareTask(line)
-					createTask(task, obsidianDeepLink, this.todoist);
+					createTask(task, obsidianDeepLink, this.getTodistApi());
 				}
 			}
 		});
