@@ -20,7 +20,7 @@ function prepareTask(line: string) {
 	line = line.trim()
 	//remove all leading non-alphanumeric characters
 	line = line.replace(/^\W+|\W+$/, '')
-	line = urlEncode(line)
+	//line = urlEncode(line)
 	return line
 }
 
@@ -145,7 +145,7 @@ export default class TodoistLinkPlugin extends Plugin {
 				if (fileTitle == null) {
 					return;
 				} else {
-					let fileName = urlEncode(fileTitle.name)
+					let fileName = fileTitle.name
 					fileName = fileName.replace(/\.md$/, '')
 					const obsidianDeepLink = (this.app as any).getObsidianUrl(fileTitle)
 					createProject(fileName, obsidianDeepLink, this.todoist);

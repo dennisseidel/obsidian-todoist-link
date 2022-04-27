@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-todoist-link",
 	"name": "Todoist Link",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"minAppVersion": "0.12.0",
 	"description": "Create Todoist tasks and projects from Obsidian with bidirectional links.",
 	"author": "dennisseidel",
