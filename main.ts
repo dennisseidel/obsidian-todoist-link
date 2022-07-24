@@ -1,4 +1,4 @@
-import { Editor, App, EditorPosition, MarkdownView, Plugin, HeadingCache, PluginSettingTab, Setting } from 'obsidian';
+import { Editor, App, EditorPosition, MarkdownView, Plugin, HeadingCache, PluginSettingTab, Setting, TFile } from 'obsidian';
 import { TodoistApi } from '@doist/todoist-api-typescript'
 import { findWikiLink, line } from './utility';
 
@@ -31,7 +31,7 @@ export function findPreviousHeader(line: number, headers: HeadingCache[]): strin
 }
 
 
-function prepareTask(line: string, app: any): line {
+function prepareTask(line: string, app: any, activeFile: TFile): line {
 	
 	line = line.trim()
 	//remove all leading non-alphanumeric characters
@@ -39,11 +39,13 @@ function prepareTask(line: string, app: any): line {
 	lineExternalLinkFormat = lineExternalLinkFormat.replace(/^[^\\[a-zA-Z0-9]+|[^\\[a-zA-Z0-9]+$/, '')
 	// replace wiki links with obisidian links
 	const wikilinks = findWikiLink(lineExternalLinkFormat)
-					wikilinks.forEach(wikilink => {
-						const linkedFile = this.app.vault.getAbstractFileByPath(`${wikilink.text}.md`)
-						const urlForWikiLink = app.getObsidianUrl(linkedFile)
-						lineExternalLinkFormat = lineExternalLinkFormat.replace(wikilink.link, `[${wikilink.text}](${urlForWikiLink})`)
-					})
+	wikilinks.forEach(wikilink => {
+		const link = this.app.metadataCache.getFirstLinkpathDest(wikilink.text, activeFile.path)
+		if (link) {
+			const urlForWikiLink = app.getObsidianUrl(link)
+			lineExternalLinkFormat = lineExternalLinkFormat.replace(wikilink.link, `[${wikilink.text}](${urlForWikiLink})`)
+		}
+	})
 	const lineInternalLinkFormat = line.replace(/^[^\\[a-zA-Z0-9]+|[^\\[a-zA-Z0-9]+$/, '')
 	//lineInternalLinkFormat = lineInternalLinkFormat.replace(/\[\[([^\]]+)\]\]/g, '[$1]($1)')
 	
@@ -181,13 +183,13 @@ export default class TodoistLinkPlugin extends Plugin {
 			name: 'Create Todoist Task',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				const workspace = this.app.workspace;
-				const fileTitle = workspace.getActiveFile()
-				if (fileTitle == null) {
+				const activeFile = workspace.getActiveFile()
+				if (activeFile == null) {
 					return;
 				} else {
-					const obsidianDeepLink = (this.app as any).getObsidianUrl(fileTitle)
+					const obsidianDeepLink = (this.app as any).getObsidianUrl(activeFile)
 					const line = getCurrentLine(editor, view)
-					const task = prepareTask(line, this.app)
+					const task = prepareTask(line, this.app, activeFile)
 					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformLinkToLink);
 				}
 			}
