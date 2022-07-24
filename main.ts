@@ -154,7 +154,7 @@ export default class TodoistLinkPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		this.onload();
+		//this.onload();
 	}
 
 	async onload() {
@@ -219,6 +219,9 @@ class TodoistLinkSettingTab extends PluginSettingTab {
 		const {containerEl} = this;
 
 		containerEl.empty();
+		
+		this.containerEl.createEl('h2', { text: 'Authentication' })
+
 
 		new Setting(containerEl)
 			.setName('API Key')
@@ -231,14 +234,19 @@ class TodoistLinkSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		this.containerEl.createEl('h2', { text: 'General' })
+
 		new Setting(containerEl)
 			.setName('Style: Transform Link to Link')
 			.setDesc('If you enable this setting then then plugin transforms the complete line to a link to Todoist.')
-			.addToggle(toggle => toggle
+			.addToggle( (toggle) => {
+				toggle
 				.setValue(this.plugin.settings.transformLinkToLink)
 				.onChange(async (value) => {
-					this.plugin.settings.transformLinkToLink= value;
+					console.log(value)
+					this.plugin.settings.transformLinkToLink = value;
 					await this.plugin.saveSettings();
-				}));
+				})
+			});
 	}
 }
