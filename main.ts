@@ -3,13 +3,13 @@ import { TodoistApi } from '@doist/todoist-api-typescript'
 import { findWikiLink, line } from './utility';
 
 interface TodoistLinkSettings {
-	transformLinkToLink: boolean;
+	transformToLink: boolean;
 	apikey: string;
 }
 
 const DEFAULT_SETTINGS: TodoistLinkSettings = {
 	apikey: '', 
-	transformLinkToLink: false,
+	transformToLink: false,
 }
 
 function getCurrentLine(editor: Editor, view: MarkdownView) {
@@ -100,7 +100,7 @@ function createProject(title: string, deepLink: string, api: TodoistApi) {
     .catch((error) => console.log(error))
 }
 
-export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformLinkToLink: boolean) {
+export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean) {
 	console.log(processedLine)
 	api.addTask({
 		content: `${processedLine.externalLinkFormat}`,
@@ -124,10 +124,10 @@ export function createTask(processedLine: line, deepLink: string, api: TodoistAp
 					line: editorPosition.line,
 					ch: lineLength
 				}
-				if (transformLinkToLink) {
-					view.editor.replaceRange(` ([Todoist](${task.url}))`, endRange, endRange);
-				} else {
+				if (transformToLink) {
 					view.editor.replaceRange(`[${processedLine.internalLinkFormat}](${task.url})`, startRange, endRange);
+				} else {
+					view.editor.replaceRange(` ([Todoist](${task.url}))`, endRange, endRange);
 				}
 				
 			}
@@ -190,7 +190,7 @@ export default class TodoistLinkPlugin extends Plugin {
 					const obsidianDeepLink = (this.app as any).getObsidianUrl(activeFile)
 					const line = getCurrentLine(editor, view)
 					const task = prepareTask(line, this.app, activeFile)
-					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformLinkToLink);
+					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink);
 				}
 			}
 		});
@@ -241,10 +241,10 @@ class TodoistLinkSettingTab extends PluginSettingTab {
 			.setDesc('If you enable this setting then then plugin transforms the complete line to a link to Todoist.')
 			.addToggle( (toggle) => {
 				toggle
-				.setValue(this.plugin.settings.transformLinkToLink)
+				.setValue(this.plugin.settings.transformToLink)
 				.onChange(async (value) => {
 					console.log(value)
-					this.plugin.settings.transformLinkToLink = value;
+					this.plugin.settings.transformToLink = value;
 					await this.plugin.saveSettings();
 				})
 			});
