@@ -1,27 +1,21 @@
 import { Editor, App, EditorPosition, MarkdownView, Plugin, HeadingCache, PluginSettingTab, Setting } from 'obsidian';
 import { TodoistApi } from '@doist/todoist-api-typescript'
-
+import { findWikiLink, line } from './utility';
 
 interface TodoistLinkSettings {
+	transformLinkToLink: boolean;
 	apikey: string;
 }
 
 const DEFAULT_SETTINGS: TodoistLinkSettings = {
-	apikey: ''
+	apikey: '', 
+	transformLinkToLink: false,
 }
 
 function getCurrentLine(editor: Editor, view: MarkdownView) {
 	const lineNumber = editor.getCursor().line
 	const lineText = editor.getLine(lineNumber)
 	return lineText
-}
-
-function prepareTask(line: string) {
-	line = line.trim()
-	//remove all leading non-alphanumeric characters
-	line = line.replace(/^\W+|\W+$/, '')
-	//line = urlEncode(line)
-	return line
 }
 
 // https://github.com/mgmeyers/obsidian-copy-block-link/blob/9f9ce83ecabeda03528fe3efddbd2d766d280821/main.ts#L120
@@ -37,9 +31,27 @@ export function findPreviousHeader(line: number, headers: HeadingCache[]): strin
 }
 
 
-function urlEncode(line: string) {
-	line = encodeURIComponent(line)
-	return line
+function prepareTask(line: string, app: any): line {
+	
+	line = line.trim()
+	//remove all leading non-alphanumeric characters
+	let lineExternalLinkFormat = line
+	lineExternalLinkFormat = lineExternalLinkFormat.replace(/^[^\\[a-zA-Z0-9]+|[^\\[a-zA-Z0-9]+$/, '')
+	// replace wiki links with obisidian links
+	const wikilinks = findWikiLink(lineExternalLinkFormat)
+					wikilinks.forEach(wikilink => {
+						const linkedFile = this.app.vault.getAbstractFileByPath(`${wikilink.text}.md`)
+						const urlForWikiLink = app.getObsidianUrl(linkedFile)
+						lineExternalLinkFormat = lineExternalLinkFormat.replace(wikilink.link, `[${wikilink.text}](${urlForWikiLink})`)
+					})
+	const lineInternalLinkFormat = line.replace(/^[^\\[a-zA-Z0-9]+|[^\\[a-zA-Z0-9]+$/, '')
+	//lineInternalLinkFormat = lineInternalLinkFormat.replace(/\[\[([^\]]+)\]\]/g, '[$1]($1)')
+	
+	return {
+		externalLinkFormat: lineExternalLinkFormat,
+		internalLinkFormat: lineInternalLinkFormat,
+		wikilinks
+	}
 }
 
 
@@ -57,25 +69,25 @@ function createProject(title: string, deepLink: string, api: TodoistApi) {
 			} else {
 				const editor = view.editor
 				const todoistLink = project.url;
-				let fileText = editor.getValue()
+				const fileText = editor.getValue()
 				const lines: string[] = fileText.split('\n');
 				const h1Index = lines.findIndex(line => line.startsWith('#'));
 				if (h1Index !== -1) {
-					let startRange: EditorPosition = {
+					const startRange: EditorPosition = {
 						line: h1Index,
 						ch:lines[h1Index].length
 					}
-					let endRange: EditorPosition = {
+					const endRange: EditorPosition = {
 						line: h1Index,
 						ch:lines[h1Index].length
 					}
 					editor.replaceRange(`\n\n[Todoist](${todoistLink})`, startRange, endRange);
 				} else {
-						let startRange: EditorPosition = {
+						const startRange: EditorPosition = {
 						line: 0,
 						ch:0
 					}
-					let endRange: EditorPosition = {
+					const endRange: EditorPosition = {
 						line: 0,
 						ch:0
 					}
@@ -86,9 +98,10 @@ function createProject(title: string, deepLink: string, api: TodoistApi) {
     .catch((error) => console.log(error))
 }
 
-function createTask(line: string, deepLink: string, api: TodoistApi) {
+export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformLinkToLink: boolean) {
+	console.log(processedLine)
 	api.addTask({
-		content: `${line}`,
+		content: `${processedLine.externalLinkFormat}`,
 		description: `[o](${deepLink})`,
 	}).then(
 		(task) => {
@@ -98,25 +111,31 @@ function createTask(line: string, deepLink: string, api: TodoistApi) {
 			} else {
 				const editor = view.editor
 				const currentLine = getCurrentLine(editor, view)
-				const firstLetterIndex = currentLine.search(/[a-zA-Z]|[0-9]/);
-				const line = currentLine.substring(firstLetterIndex, currentLine.length)
-				let editorPosition = view.editor.getCursor()
+				const firstLetterIndex = currentLine.search(/[a-zA-Z\\[]|[0-9]/);
+				const editorPosition = view.editor.getCursor()
 				const lineLength = view.editor.getLine(editorPosition.line).length
-				let startRange: EditorPosition = {
+				const startRange: EditorPosition = {
 					line: editorPosition.line,
 					ch: firstLetterIndex
 				}
-				let endRange: EditorPosition = {
+				const endRange: EditorPosition = {
 					line: editorPosition.line,
 					ch: lineLength
 				}
-				view.editor.replaceRange(`[${line}](${task.url})`, startRange, endRange);
+				if (transformLinkToLink) {
+					view.editor.replaceRange(` ([Todoist](${task.url}))`, endRange, endRange);
+				} else {
+					view.editor.replaceRange(`[${processedLine.internalLinkFormat}](${task.url})`, startRange, endRange);
+				}
+				
 			}
-			console.log(task)
 		})
 	.catch((error) => console.log(error))
 }
 
+export function containsWikiLink(line: string): boolean {
+	return line.includes('[[')
+}
 
 export default class TodoistLinkPlugin extends Plugin {
 
@@ -151,7 +170,7 @@ export default class TodoistLinkPlugin extends Plugin {
 				} else {
 					let fileName = fileTitle.name
 					fileName = fileName.replace(/\.md$/, '')
-					const obsidianDeepLink = (this.app as any).getObsidianUrl(fileTitle)
+					const obsidianDeepLink = (this.app as any).getObsidianUrl(fileTitle)		
 					createProject(fileName, obsidianDeepLink, this.getTodistApi());
 				}
 			}
@@ -166,12 +185,10 @@ export default class TodoistLinkPlugin extends Plugin {
 				if (fileTitle == null) {
 					return;
 				} else {
-					let fileName = urlEncode(fileTitle.name)
-					fileName = fileName.replace(/\.md$/, '')
 					const obsidianDeepLink = (this.app as any).getObsidianUrl(fileTitle)
 					const line = getCurrentLine(editor, view)
-					const task = prepareTask(line)
-					createTask(task, obsidianDeepLink, this.getTodistApi());
+					const task = prepareTask(line, this.app)
+					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformLinkToLink);
 				}
 			}
 		});
@@ -209,6 +226,16 @@ class TodoistLinkSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.apikey)
 				.onChange(async (value) => {
 					this.plugin.settings.apikey= value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Style: Transform Link to Link')
+			.setDesc('If you enable this setting then then plugin transforms the complete line to a link to Todoist.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.transformLinkToLink)
+				.onChange(async (value) => {
+					this.plugin.settings.transformLinkToLink= value;
 					await this.plugin.saveSettings();
 				}));
 	}
