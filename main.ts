@@ -57,12 +57,12 @@ function prepareTask(line: string, app: any, activeFile: TFile): line {
 }
 
 
-function createProject(title: string, deepLink: string, api: TodoistApi) {
+function createProject(title: string, deepLink: string, api: TodoistApi, fileName) {
 	api.addProject({ name: title })
     .then((project) => {
 		api.addComment({
 			projectId: project.id,
-			content: `[o](${deepLink})`,
+			content: `[${fileName}](${deepLink})`,
 		}).catch((error) => console.log(error))
 		const workspace = this.app.workspace;
 			const view = workspace.getActiveViewOfType(MarkdownView);
@@ -187,10 +187,12 @@ export default class TodoistLinkPlugin extends Plugin {
 				if (activeFile == null) {
 					return;
 				} else {
-					const obsidianDeepLink = (this.app as any).getObsidianUrl(activeFile)
+					let fileName = activeFile.name;
+          			fileName = fileName.replace(/\.md$/, "");
+          			const obsidianDeepLink = (this.app as any).getObsidianUrl(activeFile)
 					const line = getCurrentLine(editor, view)
 					const task = prepareTask(line, this.app, activeFile)
-					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink);
+					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink, fileName);
 				}
 			}
 		});
