@@ -57,7 +57,7 @@ function prepareTask(line: string, app: any, activeFile: TFile): line {
 }
 
 
-function createProject(title: string, deepLink: string, api: TodoistApi, fileName) {
+function createProject(title: string, deepLink: string, api: TodoistApi, fileName: string) {
 	api.addProject({ name: title })
     .then((project) => {
 		api.addComment({
@@ -100,11 +100,11 @@ function createProject(title: string, deepLink: string, api: TodoistApi, fileNam
     .catch((error) => console.log(error))
 }
 
-export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean) {
+export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean, fileName: string) {
 	console.log(processedLine)
 	api.addTask({
 		content: `${processedLine.externalLinkFormat}`,
-		description: `[o](${deepLink})`,
+		description: `[${fileName}](${deepLink})`,
 	}).then(
 		(task) => {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
