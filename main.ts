@@ -71,32 +71,17 @@ function createProject(title: string, deepLink: string, api: TodoistApi) {
 			if (view == null) {
 				return;
 			} else {
+				//const editor = view.editor
+
 				const editor = view.editor
 				const todoistLink = project.url;
-				const fileText = editor.getValue()
-				const lines: string[] = fileText.split('\n');
-				const h1Index = lines.findIndex(line => line.startsWith('#'));
-				if (h1Index !== -1) {
-					const startRange: EditorPosition = {
-						line: h1Index,
-						ch:lines[h1Index].length
-					}
-					const endRange: EditorPosition = {
-						line: h1Index,
-						ch:lines[h1Index].length
-					}
-					editor.replaceRange(`\n\n[Todoist](${todoistLink})`, startRange, endRange);
-				} else {
-						const startRange: EditorPosition = {
-						line: 0,
-						ch:0
-					}
-					const endRange: EditorPosition = {
-						line: 0,
-						ch:0
-					}
-					editor.replaceRange(`[Todoist](${todoistLink})\n\n`, startRange, endRange);
+				const editorPosition = view.editor.getCursor()
+				const lineLength = view.editor.getLine(editorPosition.line).length
+				const endRange: EditorPosition = {
+					line: editorPosition.line,
+					ch: lineLength
 				}
+				editor.replaceRange(`[Todoist](${todoistLink})\n\n`, endRange, endRange);
 			}
 	})
     .catch((error) => console.log(error))
