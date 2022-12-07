@@ -15,7 +15,9 @@ const DEFAULT_SETTINGS: TodoistLinkSettings = {
 function getCurrentLine(editor: Editor, view: MarkdownView) {
 	const lineNumber = editor.getCursor().line
 	const lineText = editor.getLine(lineNumber)
-	return lineText
+	return {
+		lineText, lineNumber
+	}
 }
 
 // https://github.com/mgmeyers/obsidian-copy-block-link/blob/9f9ce83ecabeda03528fe3efddbd2d766d280821/main.ts#L120
@@ -101,7 +103,7 @@ function createProject(title: string, deepLink: string, api: TodoistApi) {
 }
 
 export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean) {
-	console.log(processedLine)
+	//console.log(processedLine)
 	api.addTask({
 		content: `${processedLine.externalLinkFormat}`,
 		description: `[o](${deepLink})`,
@@ -113,7 +115,7 @@ export function createTask(processedLine: line, deepLink: string, api: TodoistAp
 			} else {
 				const editor = view.editor
 				const currentLine = getCurrentLine(editor, view)
-				const firstLetterIndex = currentLine.search(/[a-zA-Z\\[]|[0-9]/);
+				const firstLetterIndex = currentLine.lineText.search(/[a-zA-Z\\[]|[0-9]/);
 				const editorPosition = view.editor.getCursor()
 				const lineLength = view.editor.getLine(editorPosition.line).length
 				const startRange: EditorPosition = {
@@ -189,7 +191,7 @@ export default class TodoistLinkPlugin extends Plugin {
 				} else {
 					const obsidianDeepLink = (this.app as any).getObsidianUrl(activeFile)
 					const line = getCurrentLine(editor, view)
-					const task = prepareTask(line, this.app, activeFile)
+					const task = prepareTask(line.lineText, this.app, activeFile)
 					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink);
 				}
 			}
@@ -243,7 +245,6 @@ class TodoistLinkSettingTab extends PluginSettingTab {
 				toggle
 				.setValue(this.plugin.settings.transformToLink)
 				.onChange(async (value) => {
-					console.log(value)
 					this.plugin.settings.transformToLink = value;
 					await this.plugin.saveSettings();
 				})
