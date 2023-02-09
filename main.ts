@@ -5,11 +5,13 @@ import { findWikiLink, line } from './utility';
 interface TodoistLinkSettings {
 	transformToLink: boolean;
 	apikey: string;
+	dueToday: boolean;
 }
 
 const DEFAULT_SETTINGS: TodoistLinkSettings = {
 	apikey: '', 
 	transformToLink: false,
+	dueToday: false,
 }
 
 function getCurrentLine(editor: Editor, view: MarkdownView) {
@@ -87,11 +89,12 @@ function createProject(title: string, deepLink: string, api: TodoistApi) {
     .catch((error) => console.log(error))
 }
 
-export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean, fileName: string) {
+export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean, fileName: string, dueToday: boolean) {
 	console.log(processedLine)
 	api.addTask({
 		content: `${processedLine.externalLinkFormat}`,
 		description: `[${fileName}](${deepLink})`,
+		due_string: dueToday ? `today` : ``
 	}).then(
 		(task) => {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -179,7 +182,7 @@ export default class TodoistLinkPlugin extends Plugin {
           			const obsidianDeepLink = (this.app as any).getObsidianUrl(activeFile)
 					const line = getCurrentLine(editor, view)
 					const task = prepareTask(line.lineText, this.app, activeFile)
-					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink, fileName)
+					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink, fileName, this.settings.dueToday)
 				}
 			}
 		});
@@ -227,12 +230,24 @@ class TodoistLinkSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Style: Transform Link to Link')
-			.setDesc('If you enable this setting then then plugin transforms the complete line to a link to Todoist.')
+			.setDesc('If you enable this setting then the plugin transforms the complete line to a link to Todoist.')
 			.addToggle( (toggle) => {
 				toggle
 				.setValue(this.plugin.settings.transformToLink)
 				.onChange(async (value) => {
 					this.plugin.settings.transformToLink = value;
+					await this.plugin.saveSettings();
+				})
+			});
+
+		new Setting(containerEl)
+			.setName("Add today as due date")
+			.setDesc("If you enable this setting then the plugin will add today as the task's due date.")
+			.addToggle( (toggle) => {
+				toggle
+				.setValue(this.plugin.settings.dueToday)
+				.onChange(async (value) => {
+					this.plugin.settings.dueToday = value;
 					await this.plugin.saveSettings();
 				})
 			});
