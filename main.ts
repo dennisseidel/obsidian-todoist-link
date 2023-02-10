@@ -1,15 +1,17 @@
 import { Editor, App, EditorPosition, MarkdownView, Plugin, HeadingCache, PluginSettingTab, Setting, TFile } from 'obsidian';
-import { TodoistApi } from '@doist/todoist-api-typescript'
-import { findWikiLink, line } from './utility';
+import { AddTaskArgs, TodoistApi } from '@doist/todoist-api-typescript'
+import { clearTaskFormatting, findWikiLink, getDueDate, line } from './utility';
 
 interface TodoistLinkSettings {
 	transformToLink: boolean;
 	apikey: string;
+	applyDates: boolean;
 }
 
 const DEFAULT_SETTINGS: TodoistLinkSettings = {
 	apikey: '', 
 	transformToLink: false,
+	applyDates: false
 }
 
 function getCurrentLine(editor: Editor, view: MarkdownView) {
@@ -36,6 +38,11 @@ export function findPreviousHeader(line: number, headers: HeadingCache[]): strin
 function prepareTask(line: string, app: any, activeFile: TFile): line {
 	
 	line = line.trim()
+
+	
+	// remove task based markdown
+	line = clearTaskFormatting(line)
+
 	//remove all leading non-alphanumeric characters
 	let lineExternalLinkFormat = line
 	lineExternalLinkFormat = lineExternalLinkFormat.replace(/^[^\\[a-zA-Z0-9]+|[^\\[a-zA-Z0-9]+$/, '')
@@ -87,12 +94,20 @@ function createProject(title: string, deepLink: string, api: TodoistApi) {
     .catch((error) => console.log(error))
 }
 
-export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean, fileName: string) {
+export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean, applyDates: boolean, fileName: string) {
 	console.log(processedLine)
-	api.addTask({
+
+	let taskData:AddTaskArgs = {
 		content: `${processedLine.externalLinkFormat}`,
-		description: `[${fileName}](${deepLink})`,
-	}).then(
+		description: `[${fileName}](${deepLink})`
+	}
+
+	if(applyDates) {
+		const dueDate = getDueDate(processedLine.externalLinkFormat)
+		if(dueDate) taskData = {...taskData, dueDate: dueDate }
+	}
+
+	api.addTask(taskData).then(
 		(task) => {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view == null) {
@@ -179,7 +194,7 @@ export default class TodoistLinkPlugin extends Plugin {
           			const obsidianDeepLink = (this.app as any).getObsidianUrl(activeFile)
 					const line = getCurrentLine(editor, view)
 					const task = prepareTask(line.lineText, this.app, activeFile)
-					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink, fileName)
+					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink, this.settings.applyDates, fileName)
 				}
 			}
 		});
@@ -236,5 +251,19 @@ class TodoistLinkSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				})
 			});
+
+		new Setting(containerEl)
+			.setName('Apply dates in Todoist')
+			.setDesc('Enabling this setting will apply 📅 due, ⏳scheduled or 🛫start date in todoist. If multiple dates are present, 📅 due is used.')
+			.addToggle( (toggle) => {
+				toggle
+				.setValue(this.plugin.settings.applyDates)
+				.onChange(async (value) => {
+					this.plugin.settings.applyDates = value;
+					await this.plugin.saveSettings();
+				})
+			});
+
+
 	}
 }
