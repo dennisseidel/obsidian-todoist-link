@@ -1,6 +1,6 @@
 import { Editor, App, EditorPosition, MarkdownView, Plugin, HeadingCache, PluginSettingTab, Setting, TFile } from 'obsidian';
 import { TodoistApi } from '@doist/todoist-api-typescript'
-import { findWikiLink, line } from './utility';
+import { clearTaskFormatting, findWikiLink, line } from './utility';
 
 interface TodoistLinkSettings {
 	transformToLink: boolean;
@@ -36,6 +36,11 @@ export function findPreviousHeader(line: number, headers: HeadingCache[]): strin
 function prepareTask(line: string, app: any, activeFile: TFile): line {
 	
 	line = line.trim()
+
+	
+	// remove task based markdown
+	line = clearTaskFormatting(line)
+
 	//remove all leading non-alphanumeric characters
 	let lineExternalLinkFormat = line
 	lineExternalLinkFormat = lineExternalLinkFormat.replace(/^[^\\[a-zA-Z0-9]+|[^\\[a-zA-Z0-9]+$/, '')
