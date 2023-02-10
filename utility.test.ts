@@ -1,4 +1,4 @@
-import { clearTaskFormatting, findWikiLink, isTask } from './utility';
+import { clearTaskFormatting, findWikiLink, getDueDate, isTask } from './utility';
 
 
 test('test find wiki link', () => {
@@ -89,4 +89,18 @@ test('Removes task based markdown on a string that starts with a big number', ()
     expect(task).toEqual('Task test text')
     const subtask = clearTaskFormatting('	909999. [ ] Task test text')
     expect(subtask).toEqual('Task test text')
+})
+
+test('Due date priorities are correctly', () => {
+    //📅📆🗓
+    const dueDate = getDueDate('Task test text 📅 2023-02-01 🛫 2023-02-03 ⏳ 2023-02-02')
+    expect(dueDate).toEqual('2023-02-01')
+
+    //⏳⌛
+    const scheduledDate = getDueDate('Task test text 🛫 2023-02-03 ⏳ 2023-02-02')
+    expect(scheduledDate).toEqual('2023-02-02')
+
+    //🛫
+    const startDate = getDueDate('Task test text 🛫 2023-02-03')
+    expect(startDate).toEqual('2023-02-03')
 })

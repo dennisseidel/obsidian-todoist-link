@@ -10,6 +10,12 @@ interface wikilinkResult {
 	text: string
 }
 
+interface taskObject {
+	indentation: string // tabs, spaces and > for potentially nested blockquotes or Obsidian callouts
+	marker: string // -, * etc
+	status: string // [x] [>] etc
+	text: string // everything after [ ]
+}
 
 
 export function findWikiLink(line: string): wikilinkResult[] {
@@ -27,39 +33,57 @@ export function findWikiLink(line: string): wikilinkResult[] {
 	return result
 }
 
+/**
+ * Create an object from the string
+ * @param line 
+ * @returns taskObject
+ */
+export function taskObject(line: string): taskObject {
+  // Matches indentation before a list marker (including > for potentially nested blockquotes or Obsidian callouts)
+  const indentationRegex = /^([\s\t>]*)/;
 
+  // Matches list markers (-, * 1.)
+  const listMarkerRegex = /([-*]|[0-9]+\.)/;
 
-// Matches indentation before a list marker (including > for potentially nested blockquotes or Obsidian callouts)
-const indentationRegex = /^([\s\t>]*)/;
+  // Matches checkbox and status character inside
+  const checkboxRegex = /\[(.)\]/u;
 
-// Matches list markers (-, * 1.)
-const listMarkerRegex = /([-*]|[0-9]+\.)/;
+  // Match after the checkbox.
+  const afterCheckboxRegex = / *(.*)/u;
 
-// Matches checkbox and status character inside
-const checkboxRegex = /\[(.)\]/u;
+  // Regex for parsing a line, it matches, indentation, list marker, status and the rest of the line
+  const taskRegex = new RegExp(
+    indentationRegex.source +
+      listMarkerRegex.source +
+      " +" +
+      checkboxRegex.source +
+      afterCheckboxRegex.source,
+    "u"
+  );
 
-// Match after the checkbox.
-const afterCheckboxRegex = / *(.*)/u;
+  const regexMatch = line.match(taskRegex);
+  if (regexMatch === null) {
+    return null;
+  }
 
-// Regex for parsing a line, it matches, indentation, list marker, status and the rest of the line
-const taskRegex = new RegExp(
-  indentationRegex.source +
-    listMarkerRegex.source +
-    " +" +
-    checkboxRegex.source +
-    afterCheckboxRegex.source,
-  "u"
-);
+  return {
+    indentation: regexMatch[1],
+    marker: regexMatch[2],
+    status: regexMatch[3],
+    text: regexMatch[4].trim(),
+  };
+}
+
 
 /**
- * Checks to see if a string is a markdowb task according to
+ * Checks to see if a string is a markdown task according to
  * obsidian-tasks plugin's rules (but without a tasks plugin dependency)
  * @param line
  * @returns boolean
  */
 export function isTask(line: string): boolean {
-  const regexMatch = line.match(taskRegex);
-  if (regexMatch !== null) {
+	const isTask = taskObject(line);
+  if (isTask !== null) {
     return true;
   }
   return false;
@@ -71,10 +95,62 @@ export function isTask(line: string): boolean {
  * @returns string without task related markdown
  */
 export function clearTaskFormatting(line: string): string {
-  if (isTask(line)) {
-    const regexMatch = line.match(taskRegex);
-    // match[4] includes the whole body of the task after the brackets.
-    return regexMatch[4].trim();
+	const task = taskObject(line);
+  if (task !== null) {
+    return task.text
   }
-  return line;
+
+	return line
 }
+
+/**
+ * Get a due date from the task string (uses tasks plugin format)
+ * @param line 
+ * @returns due, start or scheduled date (in order of priority)
+ */
+export function getDueDate(line: string): string {
+  let matched: boolean;
+  let scheduledDate: string | null = null;
+  let dueDate: string | null = null;
+  let startDate: string | null = null;
+
+  const startDateRegex = /🛫 *(\d{4}-\d{2}-\d{2})$/u;
+  const scheduledDateRegex = /[⏳⌛] *(\d{4}-\d{2}-\d{2})$/u;
+  const dueDateRegex = /[📅📆🗓] *(\d{4}-\d{2}-\d{2})$/u;
+
+  const maxRuns = 20;
+  let runs = 0;
+  do {
+    matched = false;
+
+    const dueDateMatch = line.match(dueDateRegex);
+    if (dueDateMatch !== null) {
+      dueDate = dueDateMatch[1];
+      line = line.replace(dueDateRegex, "").trim();
+      matched = true;
+    }
+
+    const scheduledDateMatch = line.match(scheduledDateRegex);
+    if (scheduledDateMatch !== null) {
+      scheduledDate = scheduledDateMatch[1];
+      line = line.replace(scheduledDateRegex, "").trim();
+      matched = true;
+    }
+
+    const startDateMatch = line.match(startDateRegex);
+    if (startDateMatch !== null) {
+      startDate = startDateMatch[1];
+      line = line.replace(startDateRegex, "").trim();
+      matched = true;
+    }
+
+    runs++;
+  } while (matched && runs <= maxRuns);
+  const dates = [dueDate, scheduledDate, startDate];
+  const taskDueDate = dates.find((d) => d !== null);
+
+  return taskDueDate;
+}
+
+
+
