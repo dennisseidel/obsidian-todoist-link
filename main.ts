@@ -1,17 +1,19 @@
 import { Editor, App, EditorPosition, MarkdownView, Plugin, HeadingCache, PluginSettingTab, Setting, TFile } from 'obsidian';
 import { AddTaskArgs, TodoistApi } from '@doist/todoist-api-typescript'
-import { clearTaskFormatting, findWikiLink, getDueDate, line } from './utility';
+import { clearTaskFormatting, findWikiLink, getDueDate, getPriority, line } from './utility';
 
 interface TodoistLinkSettings {
 	transformToLink: boolean;
 	apikey: string;
 	applyDates: boolean;
+	applyPriority: boolean;
 }
 
 const DEFAULT_SETTINGS: TodoistLinkSettings = {
 	apikey: '', 
 	transformToLink: false,
-	applyDates: false
+	applyDates: false,
+	applyPriority: false
 }
 
 function getCurrentLine(editor: Editor, view: MarkdownView) {
@@ -36,16 +38,16 @@ export function findPreviousHeader(line: number, headers: HeadingCache[]): strin
 
 
 function prepareTask(line: string, app: any, activeFile: TFile): line {
-	
+
 	line = line.trim()
 
 	
 	// remove task based markdown
 	line = clearTaskFormatting(line)
 
-	//remove all leading non-alphanumeric characters
+	//remove all leading non-alphanumeric characters (ignore emojis)
 	let lineExternalLinkFormat = line
-	lineExternalLinkFormat = lineExternalLinkFormat.replace(/^[^\\[a-zA-Z0-9]+|[^\\[a-zA-Z0-9]+$/, '')
+	lineExternalLinkFormat = lineExternalLinkFormat.replace(/^[^\\[a-zA-Z0-9\u2000-\u3300\ud000-\udfff\ud000-\udfff\ud000-\udfff\u00a9\u00ae\ud83c\ud83d\ud83e]+|[^\\[a-zA-Z0-9\u2000-\u3300\ud000-\udfff\ud000-\udfff\ud000-\udfff\u00a9\u00ae\ud83c\ud83d\ud83e]+$/, '')
 	// replace wiki links with obisidian links
 	const wikilinks = findWikiLink(lineExternalLinkFormat)
 	wikilinks.forEach(wikilink => {
@@ -55,7 +57,7 @@ function prepareTask(line: string, app: any, activeFile: TFile): line {
 			lineExternalLinkFormat = lineExternalLinkFormat.replace(wikilink.link, `[${wikilink.text}](${urlForWikiLink})`)
 		}
 	})
-	const lineInternalLinkFormat = line.replace(/^[^\\[a-zA-Z0-9]+|[^\\[a-zA-Z0-9]+$/, '')
+	const lineInternalLinkFormat = line.replace(/^[^\\[a-zA-Z0-9\u2000-\u3300\ud000-\udfff\ud000-\udfff\ud000-\udfff\u00a9\u00ae\ud83c\ud83d\ud83e]+|[^\\[a-zA-Z0-9\u2000-\u3300\ud000-\udfff\ud000-\udfff\ud000-\udfff\u00a9\u00ae\ud83c\ud83d\ud83e]+$/, '')
 	//lineInternalLinkFormat = lineInternalLinkFormat.replace(/\[\[([^\]]+)\]\]/g, '[$1]($1)')
 	
 	return {
@@ -94,7 +96,7 @@ function createProject(title: string, deepLink: string, api: TodoistApi) {
     .catch((error) => console.log(error))
 }
 
-export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean, applyDates: boolean, fileName: string) {
+export function createTask(processedLine: line, deepLink: string, api: TodoistApi, transformToLink: boolean, applyDates: boolean, applyPriority: boolean, fileName: string) {
 	console.log(processedLine)
 
 	let taskData:AddTaskArgs = {
@@ -105,6 +107,11 @@ export function createTask(processedLine: line, deepLink: string, api: TodoistAp
 	if(applyDates) {
 		const dueDate = getDueDate(processedLine.externalLinkFormat)
 		if(dueDate) taskData = {...taskData, dueDate: dueDate }
+	}
+
+	if(applyPriority) {
+		const priority = getPriority(processedLine.externalLinkFormat)
+		if(priority) taskData = {...taskData, priority: priority }
 	}
 
 	api.addTask(taskData).then(
@@ -194,7 +201,7 @@ export default class TodoistLinkPlugin extends Plugin {
           			const obsidianDeepLink = (this.app as any).getObsidianUrl(activeFile)
 					const line = getCurrentLine(editor, view)
 					const task = prepareTask(line.lineText, this.app, activeFile)
-					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink, this.settings.applyDates, fileName)
+					createTask(task, obsidianDeepLink, this.getTodistApi(), this.settings.transformToLink, this.settings.applyDates, this.settings.applyPriority, fileName)
 				}
 			}
 		});
@@ -260,6 +267,18 @@ class TodoistLinkSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.applyDates)
 				.onChange(async (value) => {
 					this.plugin.settings.applyDates = value;
+					await this.plugin.saveSettings();
+				})
+			});
+
+		new Setting(containerEl)
+			.setName('Apply priorities in Todoist')
+			.setDesc('Enabling this setting will apply priority (⏫🔼🔽) in todoist.')
+			.addToggle( (toggle) => {
+				toggle
+				.setValue(this.plugin.settings.applyPriority)
+				.onChange(async (value) => {
+					this.plugin.settings.applyPriority = value;
 					await this.plugin.saveSettings();
 				})
 			});

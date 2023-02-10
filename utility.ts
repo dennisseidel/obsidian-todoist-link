@@ -109,48 +109,78 @@ export function clearTaskFormatting(line: string): string {
  * @returns due, start or scheduled date (in order of priority)
  */
 export function getDueDate(line: string): string {
-  let matched: boolean;
   let scheduledDate: string | null = null;
   let dueDate: string | null = null;
   let startDate: string | null = null;
 
-  const startDateRegex = /🛫 *(\d{4}-\d{2}-\d{2})$/u;
-  const scheduledDateRegex = /[⏳⌛] *(\d{4}-\d{2}-\d{2})$/u;
-  const dueDateRegex = /[📅📆🗓] *(\d{4}-\d{2}-\d{2})$/u;
+  const startDateRegex = /🛫 *(\d{4}-\d{2}-\d{2})/u;
+  const scheduledDateRegex = /[⏳⌛] *(\d{4}-\d{2}-\d{2})/u;
+  const dueDateRegex = /[📅📆🗓] *(\d{4}-\d{2}-\d{2})/u;
 
-  const maxRuns = 20;
-  let runs = 0;
-  do {
-    matched = false;
+  const dueDateMatch = line.match(dueDateRegex);
+  if (dueDateMatch !== null) {
+    dueDate = dueDateMatch[1];
+  }
 
-    const dueDateMatch = line.match(dueDateRegex);
-    if (dueDateMatch !== null) {
-      dueDate = dueDateMatch[1];
-      line = line.replace(dueDateRegex, "").trim();
-      matched = true;
-    }
+  const scheduledDateMatch = line.match(scheduledDateRegex);
+  if (scheduledDateMatch !== null) {
+    scheduledDate = scheduledDateMatch[1];
+  }
 
-    const scheduledDateMatch = line.match(scheduledDateRegex);
-    if (scheduledDateMatch !== null) {
-      scheduledDate = scheduledDateMatch[1];
-      line = line.replace(scheduledDateRegex, "").trim();
-      matched = true;
-    }
+  const startDateMatch = line.match(startDateRegex);
+  if (startDateMatch !== null) {
+    startDate = startDateMatch[1];
+  }
 
-    const startDateMatch = line.match(startDateRegex);
-    if (startDateMatch !== null) {
-      startDate = startDateMatch[1];
-      line = line.replace(startDateRegex, "").trim();
-      matched = true;
-    }
-
-    runs++;
-  } while (matched && runs <= maxRuns);
   const dates = [dueDate, scheduledDate, startDate];
   const taskDueDate = dates.find((d) => d !== null);
 
   return taskDueDate;
 }
 
+
+
+/**
+ * Get a priority from the task string (uses tasks plugin format) 
+ * @param line 
+ * @returns number 4 high, 1 low
+ */
+export function getPriority(line: string): number {
+  // nb tasks plugin and todoist priorities are reversed
+  const todoistPriority = {
+    high: 4,
+    medium: 3,
+    low: 2,
+    none: 1,
+  };
+
+  const prioritySymbols = {
+    High: "⏫",
+    Medium: "🔼",
+    Low: "🔽",
+    None: "",
+  };
+
+  let priority = todoistPriority.none;
+  const priorityRegex = /([⏫🔼🔽])/u;
+
+	const priorityMatch = line.match(priorityRegex);
+	if (priorityMatch !== null) {
+		switch (priorityMatch[1]) {
+			case prioritySymbols.Low:
+				priority = todoistPriority.low;
+				break;
+			case prioritySymbols.Medium:
+				priority = todoistPriority.medium;
+				break;
+			case prioritySymbols.High:
+				priority = todoistPriority.high;
+				break;
+		}
+	}
+
+
+  return priority;
+}
 
 

@@ -1,4 +1,4 @@
-import { clearTaskFormatting, findWikiLink, getDueDate, isTask } from './utility';
+import { clearTaskFormatting, findWikiLink, getDueDate, getPriority, isTask } from './utility';
 
 
 test('test find wiki link', () => {
@@ -103,4 +103,35 @@ test('Due date priorities are correctly', () => {
     //🛫
     const startDate = getDueDate('Task test text 🛫 2023-02-03')
     expect(startDate).toEqual('2023-02-03')
+})
+
+
+test('High priority is passed through correctly', () => {
+    const priority = getPriority('Task test text ⏫')
+    expect(priority).toEqual(4)
+})
+test('Medium priority is passed through correctly', () => {
+    const priority = getPriority('Task test text 🔼')
+    expect(priority).toEqual(3)
+})
+test('Low priority is passed through correctly', () => {
+    const priority = getPriority('Task test text 🔽')
+    expect(priority).toEqual(2)
+})
+test('No priority is passed through correctly', () => {
+    const priority = getPriority('Task test text')
+    expect(priority).toEqual(1)
+})
+test('Multiple priority passed first one through correctly', () => {
+    const priority = getPriority('Task test text ⏫ 🔼 🔽 ')
+    expect(priority).toEqual(4)
+})
+
+
+test('Priority and Duedate processing', ()=> {
+    const taskText = 'Task test text 🛫 2023-02-03 ⏳ 2023-02-02 ⏫';
+    const priority = getPriority(taskText)
+    expect(priority).toEqual(4)
+    const dueDate = getDueDate(taskText)
+    expect(dueDate).toEqual('2023-02-02')
 })
